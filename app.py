@@ -522,7 +522,12 @@ def list_script(): return handle_list("script")
 def delete_script(): return handle_delete("script")
 @app.route("/script/stats")
 def stats_script(): return handle_stats("script")
-
+@app.route('/setmessage')
+def set_message():
+    key = request.args.get('key')
+    msg = request.args.get('msg')
+    # Ilagay dito ang database logic mo para i-save o i-update ang message ng key na ito
+    return "Success", 200
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
