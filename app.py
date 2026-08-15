@@ -9,6 +9,25 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 import requests
 
+def init_db():
+    try:
+        conn = get_db_connection("injector")
+        cur = conn.cursor()
+        # Awtomatikong gagawa ng column kung wala pa
+        cur.execute("""
+            ALTER TABLE keys ADD COLUMN IF NOT EXISTS message TEXT DEFAULT NULL;
+        """)
+        conn.commit()
+        cur.close()
+        conn.close()
+        print("Database initialized successfully: message column checked/added.")
+    except Exception as e:
+        print(f"Database init error: {e}")
+
+# Tawagin ito bago mag-run ang app
+with app.app_context():
+    init_db()
+    
 app = Flask(__name__)
 CORS(app)
 
@@ -315,10 +334,12 @@ def handle_verify(db_type):
     time_left_str = format_remaining_time(remaining_seconds)
 
     def success_response():
+        custom_message = data.get("message") or ""  # Kunin ang custom message mula sa database
         return jsonify({
             "status": "valid",
             "expires_in_sec": remaining_seconds,
             "expire_str": time_left_str,
+            "message": custom_message  # <--- ITO ANG MAGPAPALABAS NG CUSTOM MESSAGE SA INJECTOR
         })
 
     if device in current_devices:
@@ -526,8 +547,29 @@ def stats_script(): return handle_stats("script")
 def set_message():
     key = request.args.get('key')
     msg = request.args.get('msg')
-    # Ilagay dito ang database logic mo para i-save o i-update ang message ng key na ito
-    return "Success", 200
+    db_type = request.args.get('db_type', 'injector')
+    
+    if not key or not msg:
+        return jsonify({"status": "error", "message": "Missing key or message"}), 400
+        
+    try:
+        conn = get_db_connection(db_type)
+        cur = conn.cursor()
+        # I-check muna kung nag-e-exist ang key bago i-update
+        cur.execute("SELECT key_code FROM keys WHERE key_code = %s;", (key,))
+        if not cur.fetchone():
+            cur.close()
+            conn.close()
+            return jsonify({"status": "error", "message": "Key does not exist!"}), 404
+            
+        # I-update ang message sa database
+        cur.execute("UPDATE keys SET message = %s WHERE key_code = %s;", (msg, key))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({"status": "success", "message": "Custom message updated successfully!"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
