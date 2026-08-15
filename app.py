@@ -335,21 +335,22 @@ def handle_verify(db_type):
         conn.close()
         return jsonify({"status": "invalid"})
 
-    # --- AUTOMATIC NA CUSTOM MESSAGE CHECK ---
-    # Kunin ang message, kung walang laman o None, gagawin itong empty string
-    raw_message = data.get("message")
-    custom_message = str(raw_message).strip() if raw_message else ""
-
-    # Kung may TUNAY na mensahe lamang ito haharangin at gagawing "custom"
-    if custom_message != "":
-        cur.close()
-        conn.close()
-        send_telegram_alert(f"🚫 *{tag} Custom Message Triggered*\nKey: `{key}`\nMessage: `{custom_message}`")
-        return jsonify({
-            "status": "custom",
-            "message": custom_message
-        })
-    # ------------------------------------------
+# --- PANSAMANTALANG I-COMMENT OUT MUNA ITO ---
+    # raw_message = data.get("message")
+    # custom_message = str(raw_message).strip() if raw_message else ""
+    # 
+    # if custom_message != "":
+    #     cur.close()
+    #     conn.close()
+    #     send_telegram_alert(f"🚫 *{tag} Custom Message Triggered*\nKey: `{key}`\nMessage: `{custom_message}`")
+    #     return jsonify({
+    #         "status": "custom",
+    #         "message": custom_message
+    #     })
+    
+    # Para siguradong walang masabit na lumang message:
+    custom_message = ""
+    # ---------------------------------------------
 
     if data["revoked"]:
         cur.close()
