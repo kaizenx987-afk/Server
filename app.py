@@ -605,6 +605,45 @@ def set_message():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@app.route('/telegram_webhook', methods=['POST']) # O kung paano man mo hinahawakan ang Telegram commands mo
+def telegram_bot():
+    data = request.json
+    # Kunin ang message mula sa Telegram update
+    if "message" in data:
+        msg_text = data["message"].get("text", "")
+        chat_id = data["message"]["chat"]["id"]
+        
+        # Suriin kung ang command ay nagsisimula sa /unblockmess
+        if msg_text.startswith("/unblockmess"):
+            parts = msg_text.split(" ")
+            if len(parts) > 1:
+                target_key = parts[1].strip()
+                
+                # I-connect sa database para i-clear ang custom message
+                conn = sqlite3.connect('database.db') # Palitan ng pangalan ng DB mo kung iba
+                cur = conn.cursor()
+                
+                # Depende sa table structure mo, i-update natin ang message column para maging BLANK/NULL
+                # Halimbawa, ginagawang empty string o NULL ang message para sa key na ito
+                cur.execute("UPDATE keys SET message = '' WHERE key = ?", (target_key,))
+                conn.commit()
+                
+                # Tingnan kung may na-update ba na key
+                if cur.rowcount > 0:
+                    reply_text = f"✅ *Successfully unblocked/cleared custom message for key:*\n`{target_key}`\n\nGagana na ulit ito bilang regular valid key!"
+                else:
+                    reply_text = f"❌ *Key not found in database:* `{target_key}`"
+                
+                cur.close()
+                conn.close()
+                
+                # Isend pabalik ang tugon sa Telegram chat
+                send_telegram_message(chat_id, reply_text)
+            else:
+                send_telegram_message(chat_id, "⚠️ *Usage:* `/unblockmess < iyong_key >`")
+                
+    return "OK", 200
+    
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
