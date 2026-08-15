@@ -335,6 +335,19 @@ def handle_verify(db_type):
         conn.close()
         return jsonify({"status": "invalid"})
 
+    # --- 1. ILAGAY DITO SA PINAKATAAS ANG CUSTOM MESSAGE CHECK ---
+    custom_message = data.get("message") or ""
+    if custom_message.strip():
+        cur.close()
+        conn.close()
+        send_telegram_alert(f"🚫 *{tag} Custom Message Triggered*\nKey: `{key}`\nMessage: `{custom_message}`")
+        # Kailangan "custom" ang status para saluhin ng elseif resStatus == "custom" sa AndLua mo
+        return jsonify({
+            "status": "custom",
+            "message": custom_message
+        })
+    # -------------------------------------------------------------
+
     if data["revoked"]:
         cur.close()
         conn.close()
@@ -353,23 +366,12 @@ def handle_verify(db_type):
     remaining_seconds = int(data["expiry"] - now)
     time_left_str = format_remaining_time(remaining_seconds)
 
-    # --- IDAGDAG ITO PARA MA-BLOCK ANG MAY CUSTOM MESSAGE ---
-    custom_message = data.get("message") or ""
-    if custom_message.strip():
-        cur.close()
-        conn.close()
-        send_telegram_alert(f"🚫 *{tag} Blocked Login Attempt (Banned Key)*\nKey: `{key}`\nMessage: `{custom_message}`")
-        
-        # PALITAN ANG "revoked" NG "error" (para subukang i-force ang injector na basahin ang message)
-        return jsonify({"status": "error", "message": custom_message})
-    # --------------------------------------------------------
     def success_response():
-        custom_message = data.get("message") or ""  # Kunin ang custom message mula sa database
         return jsonify({
             "status": "valid",
             "expires_in_sec": remaining_seconds,
             "expire_str": time_left_str,
-            "message": custom_message  # <--- ITO ANG MAGPAPALABAS NG CUSTOM MESSAGE SA INJECTOR
+            "message": custom_message
         })
 
     if device in current_devices:
