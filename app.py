@@ -359,10 +359,10 @@ def handle_verify(db_type):
         cur.close()
         conn.close()
         send_telegram_alert(f"🚫 *{tag} Blocked Login Attempt (Banned Key)*\nKey: `{key}`\nMessage: `{custom_message}`")
-        # Depende sa kung anong status ang binabasa ng injector mo para ma-block (pwedeng "revoked" o "banned")
-        return jsonify({"status": "revoked", "message": custom_message})
+        
+        # PALITAN ANG "revoked" NG "error" (para subukang i-force ang injector na basahin ang message)
+        return jsonify({"status": "error", "message": custom_message})
     # --------------------------------------------------------
-
     def success_response():
         custom_message = data.get("message") or ""  # Kunin ang custom message mula sa database
         return jsonify({
