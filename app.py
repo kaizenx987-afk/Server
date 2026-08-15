@@ -605,42 +605,61 @@ def set_message():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
-@app.route('/telegram_webhook', methods=['POST']) # O kung paano man mo hinahawakan ang Telegram commands mo
+@app.route('/telegram_webhook', methods=['POST'])
 def telegram_bot():
     data = request.json
-    # Kunin ang message mula sa Telegram update
     if "message" in data:
         msg_text = data["message"].get("text", "")
         chat_id = data["message"]["chat"]["id"]
         
-        # Suriin kung ang command ay nagsisimula sa /unblockmess
         if msg_text.startswith("/unblockmess"):
             parts = msg_text.split(" ")
             if len(parts) > 1:
                 target_key = parts[1].strip()
                 
-                # I-connect sa database para i-clear ang custom message
-                conn = sqlite3.connect('database.db') # Palitan ng pangalan ng DB mo kung iba
-                cur = conn.cursor()
+                # Alamin kung sa injector o script database hahanapin (default sa injector)
+                db_type = request.args.get('db_type', 'injector')
                 
-                # Depende sa table structure mo, i-update natin ang message column para maging BLANK/NULL
-                # Halimbawa, ginagawang empty string o NULL ang message para sa key na ito
-                cur.execute("UPDATE keys SET message = '' WHERE key = ?", (target_key,))
-                conn.commit()
+                try:
+                    conn = get_db_connection(db_type)
+                    cur = conn.cursor()
+                    
+                    # I-update ang message column at gawing NULL o empty string gamit ang tamang key_code column
+                    cur.execute("UPDATE keys SET message = NULL WHERE key_code = %s;", (target_key,))
+                    conn.commit()
+                    
+                    if cur.rowcount > 0:
+                        reply_text = f"✅ *Successfully unblocked/cleared custom message for key:*\n`{target_key}`\n\nGagana na ulit ito bilang regular valid key!"
+                    else:
+                        reply_text = f"❌ *Key not found in database:* `{target_key}`"
+                    
+                    cur.close()
+                    conn.close()
+                except Exception as e:
+                    reply_text = f"❌ *Database Error:* {str(e)}"
                 
-                # Tingnan kung may na-update ba na key
-                if cur.rowcount > 0:
-                    reply_text = f"✅ *Successfully unblocked/cleared custom message for key:*\n`{target_key}`\n\nGagana na ulit ito bilang regular valid key!"
-                else:
-                    reply_text = f"❌ *Key not found in database:* `{target_key}`"
-                
-                cur.close()
-                conn.close()
-                
-                # Isend pabalik ang tugon sa Telegram chat
-                send_telegram_message(chat_id, reply_text)
+                # Gamitin ang built-in send_telegram_alert function mo pero i-override ang chat_id kung kinakailangan
+                url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+                payload = {
+                    "chat_id": chat_id,
+                    "text": reply_text,
+                    "parse_mode": "Markdown",
+                }
+                try:
+                    requests.post(url, data=payload, timeout=5)
+                except Exception:
+                    pass
             else:
-                send_telegram_message(chat_id, "⚠️ *Usage:* `/unblockmess < iyong_key >`")
+                url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+                payload = {
+                    "chat_id": chat_id,
+                    "text": "⚠️ *Usage:* `/unblockmess <iyong_key>`",
+                    "parse_mode": "Markdown",
+                }
+                try:
+                    requests.post(url, data=payload, timeout=5)
+                except Exception:
+                    pass
                 
     return "OK", 200
     
