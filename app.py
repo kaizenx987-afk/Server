@@ -9,11 +9,35 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 import requests
 
+# 1. GAWIN MUNA ANG APP DITO
+app = Flask(__name__)
+CORS(app)
+
+TELEGRAM_BOT_TOKEN = os.getenv("BOT_TOKEN")
+OWNER_ID = os.getenv("OWNER_ID")
+
+DB_URL_INJECTOR = os.getenv("DATABASE_URL_INJECTOR") or os.getenv("DATABASE_URL")
+DB_URL_SCRIPT = os.getenv("DATABASE_URL_SCRIPT")
+
+
+def get_db_connection(db_type="injector"):
+    if db_type == "script":
+        url = DB_URL_SCRIPT
+        db_name = "DATABASE_URL_SCRIPT"
+    else:
+        url = DB_URL_INJECTOR
+        db_name = "DATABASE_URL_INJECTOR"
+
+    if not url:
+        raise ValueError(f"{db_name} environment variable is missing sa Render!")
+    return psycopg2.connect(url)
+
+
+# 2. SUNOD NA ILAGAY ANG INIT_DB DITO (KASI MAY 'app' NA SYA NA KAKILALA)
 def init_db():
     try:
         conn = get_db_connection("injector")
         cur = conn.cursor()
-        # Awtomatikong gagawa ng column kung wala pa
         cur.execute("""
             ALTER TABLE keys ADD COLUMN IF NOT EXISTS message TEXT DEFAULT NULL;
         """)
@@ -24,12 +48,8 @@ def init_db():
     except Exception as e:
         print(f"Database init error: {e}")
 
-# Tawagin ito bago mag-run ang app
 with app.app_context():
     init_db()
-    
-app = Flask(__name__)
-CORS(app)
 
 # ======================
 # CONSTANTS & LOCAL MEMORY (RAM)
