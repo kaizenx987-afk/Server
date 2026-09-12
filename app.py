@@ -332,75 +332,74 @@ def handle_verify(db_type):
         conn = get_db_connection(db_type)
         cur = conn.cursor(cursor_factory=RealDictCursor)
 
-        cur.execute("SELECT * FROM device_links WHERE device_id = %s;", (device,))
-        link_data = cur.fetchone()
+        # Default values para sa Telegram user/chat
+        telegram_user = "CODM Script User"
+        chat_id = None
 
-        bot_username = "KazeRegisterBot"
-        bot_link = f"https://t.me/{bot_username}?start={device}"
+        # Hihingi lang ng Telegram link kapag HINDI CODM script ang gumamit
+        if db_type != "script":
+            cur.execute("SELECT * FROM device_links WHERE device_id = %s;", (device,))
+            link_data = cur.fetchone()
 
-        if not link_data or not link_data.get("chat_id"):
-            cur.close()
-            conn.close()
-            return jsonify({
-                "status": "link_required",
-                "message": "Please start the Telegram bot first!",
-                "bot_url": bot_link
-            })
+            bot_username = "KazeRegisterBot"
+            bot_link = f"https://t.me/{bot_username}?start={device}"
 
-        chat_id = link_data["chat_id"]
-        stored_user = link_data["telegram_user"]
+            if not link_data or not link_data.get("chat_id"):
+                cur.close()
+                conn.close()
+                return jsonify({
+                    "status": "link_required",
+                    "message": "Please start the Telegram bot first!",
+                    "bot_url": bot_link
+                })
 
-        normalized_stored = stored_user.lstrip('@').lower() if stored_user else ""
-        current_telegram_user = normalized_stored
+            chat_id = link_data["chat_id"]
+            stored_user = link_data["telegram_user"]
 
-        try:
-            url = f"https://api.telegram.org/bot{REGISTER_BOT_TOKEN}/getChat?chat_id={chat_id}"
-            resp = requests.get(url, timeout=3).json()
-            if resp.get("ok"):
-                live_user = resp["result"].get("username")
-                if live_user:
-                    current_telegram_user = live_user.lstrip('@').lower()
-        except Exception:
-            pass
+            normalized_stored = stored_user.lstrip('@').lower() if stored_user else ""
+            current_telegram_user = normalized_stored
 
-        if not stored_user.startswith("tg://"):
-            if current_telegram_user != normalized_stored and 'live_user' in locals() and live_user:
-                new_identifier = f"@{live_user}"
-                cur.execute("UPDATE device_links SET telegram_user = %s WHERE device_id = %s;", (new_identifier, device))
-                conn.commit()
-                stored_user = new_identifier
+            try:
+                url = f"https://api.telegram.org/bot{REGISTER_BOT_TOKEN}/getChat?chat_id={chat_id}"
+                resp = requests.get(url, timeout=3).json()
+                if resp.get("ok"):
+                    live_user = resp["result"].get("username")
+                    if live_user:
+                        current_telegram_user = live_user.lstrip('@').lower()
+            except Exception:
+                pass
 
-        telegram_user = stored_user
+            if not stored_user.startswith("tg://"):
+                if current_telegram_user != normalized_stored and 'live_user' in locals() and live_user:
+                    new_identifier = f"@{live_user}"
+                    cur.execute("UPDATE device_links SET telegram_user = %s WHERE device_id = %s;", (new_identifier, device))
+                    conn.commit()
+                    stored_user = new_identifier
 
-        if telegram_user.startswith("tg://"):
+            telegram_user = stored_user
+
+        # Paggawa ng user line para sa Telegram notifications
+        if telegram_user and telegram_user.startswith("tg://"):
             user_id_num = telegram_user.split("=")[-1]
             user_line = (
                 f"👤 User Login: [Open Chat](tg://openmessage?user_id={user_id_num})\n"
                 f"┃  🆔 User ID: `{user_id_num}`"
             )
-        else:
+        elif telegram_user and telegram_user != "CODM Script User":
             clean_username = telegram_user.lstrip('@')
             user_line = f"👤 User Login: [@{clean_username}](https://t.me/{clean_username})"
+        else:
+            user_line = "👤 User Login: `CODM Script (No Telegram Link)`"
             
-    cur.execute("SELECT * FROM keys WHERE key_code = %s;", (key,))
-    data = cur.fetchone()
+        # Pagkuha ng Key mula sa Database
+        cur.execute("SELECT * FROM keys WHERE key_code = %s;", (key,))
+        data = cur.fetchone()
 
-    # --- DEBUG PRINTS ---
-    print(f"DEBUG: Pinadalang Key -> {key}")
-    print(f"DEBUG: Pinadalang Device -> {device}")
-    if data:
-        print(f"DEBUG: Database Row Found -> Device Column: {repr(data.get('device'))}")
-        print(f"DEBUG: Revoked Status -> {data.get('revoked')}")
-        print(f"DEBUG: Expiry -> {data.get('expiry')}")
-    else:
-        print("DEBUG: Walang nakitang key sa database!")
-    # --------------------
+        if not data:
+            cur.close()
+            conn.close()
+            return jsonify({"status": "invalid"})
 
-    if not data:
-        cur.close()
-        conn.close()
-        return jsonify({"status": "invalid"})
-        
         raw_message = data.get("message")
         custom_message = str(raw_message).strip() if raw_message else ""
 
@@ -560,8 +559,7 @@ def handle_revoke(db_type):
         return jsonify({"status": "success"})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
-
-
+        
 def handle_unrevoke(db_type):
     key = request.args.get("key")
     if not key:
