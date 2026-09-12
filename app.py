@@ -382,14 +382,25 @@ def handle_verify(db_type):
             clean_username = telegram_user.lstrip('@')
             user_line = f"👤 User Login: [@{clean_username}](https://t.me/{clean_username})"
             
-        cur.execute("SELECT * FROM keys WHERE key_code = %s;", (key,))
-        data = cur.fetchone()
+    cur.execute("SELECT * FROM keys WHERE key_code = %s;", (key,))
+    data = cur.fetchone()
 
-        if not data:
-            cur.close()
-            conn.close()
-            return jsonify({"status": "invalid"})
+    # --- DEBUG PRINTS ---
+    print(f"DEBUG: Pinadalang Key -> {key}")
+    print(f"DEBUG: Pinadalang Device -> {device}")
+    if data:
+        print(f"DEBUG: Database Row Found -> Device Column: {repr(data.get('device'))}")
+        print(f"DEBUG: Revoked Status -> {data.get('revoked')}")
+        print(f"DEBUG: Expiry -> {data.get('expiry')}")
+    else:
+        print("DEBUG: Walang nakitang key sa database!")
+    # --------------------
 
+    if not data:
+        cur.close()
+        conn.close()
+        return jsonify({"status": "invalid"})
+        
         raw_message = data.get("message")
         custom_message = str(raw_message).strip() if raw_message else ""
 
