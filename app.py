@@ -326,18 +326,22 @@ def handle_verify(db_type):
         cleanup()
         key = request.args.get("key")
         device = request.args.get("device")
+        client_type = request.args.get("client") # Kunin ang client identifier kung meron man
+        
         if not key or not device:
             return jsonify({"status": "invalid", "message": "Missing key or device"}), 400
 
         conn = get_db_connection(db_type)
         cur = conn.cursor(cursor_factory=RealDictCursor)
 
-        # Default values para sa Telegram user/chat
         telegram_user = "CODM Script User"
         chat_id = None
 
-        # Hihingi lang ng Telegram link kapag HINDI CODM script ang gumamit
-        if db_type != "script":
+        # Kung ang client ay "jayz", i-bypass ang Telegram bot requirement!
+        if client_type == "jayz":
+            telegram_user = "JAYZ X ROIKA User"
+        elif db_type != "script":
+            # Normal check para sa main injector
             cur.execute("SELECT * FROM device_links WHERE device_id = %s;", (device,))
             link_data = cur.fetchone()
 
@@ -355,7 +359,7 @@ def handle_verify(db_type):
 
             chat_id = link_data["chat_id"]
             stored_user = link_data["telegram_user"]
-
+            # ... (ituloy ang natitirang code para sa bot verification)
             normalized_stored = stored_user.lstrip('@').lower() if stored_user else ""
             current_telegram_user = normalized_stored
 
