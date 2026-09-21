@@ -539,7 +539,6 @@ def handle_verify(db_type):
         return jsonify({"status": "locked"})
 
     except Exception as e:
-    except Exception as e:
         print("-----------------------------------------")
         print(f"CRASH ERROR SA /verify para sa device ({device}):")
         traceback.print_exc()
