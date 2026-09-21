@@ -997,6 +997,28 @@ def db_status_check():
             "message": str(e)
         }, 500)
 
+@app.route("/admin/cleanup-expired", methods=["GET"])
+def cleanup_expired_keys():
+    try:
+        now = time.time()
+        conn = get_db_connection('injector')
+        cur = conn.cursor()
+        
+        # Burahin ang mga keys na expired na at hindi active
+        cur.execute("DELETE FROM keys WHERE expiry < %s AND revoked = FALSE;", (now,))
+        conn.commit()
+        
+        deleted_count = cur.rowcount
+        cur.close()
+        conn.close()
+        
+        return jsonify({
+            "status": "success", 
+            "message": f"Matagumpay na nabura ang {deleted_count} expired keys!"
+        }), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 @app.route('/admin/add_key')
 def add_key():
     raw_key = request.args.get('key')
