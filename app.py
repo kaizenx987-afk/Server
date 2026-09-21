@@ -948,6 +948,55 @@ def register_bot():
 
     return "OK", 200
 
+@app.route("/db-status", methods=["GET"])
+def db_status_check():
+    try:
+        conn = get_db_connection("injector")
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        
+        # 1. Bilang ng keys
+        cur.execute("SELECT COUNT(*) as total FROM keys;")
+        total_keys = cur.fetchone()["total"]
+        
+        cur.execute("SELECT COUNT(*) as active FROM keys WHERE revoked = FALSE AND expiry > %s;", (time.time(),))
+        active_keys = cur.fetchone()["active"]
+        
+        # 2. Bilang ng device links (Telegram linkage)
+        cur.execute("SELECT COUNT(*) as total_devices FROM device_links;")
+        total_devices = cur.fetchone()["total_devices"]
+        
+        # 3. Sukat o timbang ng mga pangunahing tables (PostgreSQL size check)
+        cur.execute("""
+            SELECT pg_size_pretty(pg_total_relation_size('keys')) as keys_size,
+                   pg_size_pretty(pg_total_relation_size('device_links')) as links_size;
+        """)
+        sizes = cur.fetchone()
+        
+        cur.close()
+        conn.close()
+        
+        return jsonify({
+            "status": "success",
+            "database_health": "OK",
+            "stats": {
+                "total_keys": total_keys,
+                "active_keys": active_keys,
+                "expired_or_revoked_keys": total_keys - active_keys,
+                "registered_devices": total_devices
+            },
+            "storage_used": {
+                "keys_table_size": sizes["keys_size"],
+                "device_links_table_size": sizes["links_size"]
+            }
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "database_health": "CRITICAL / UNAVAILABLE",
+            "message": str(e)
+        }, 500)
+
 @app.route('/admin/add_key')
 def add_key():
     raw_key = request.args.get('key')
