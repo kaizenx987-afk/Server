@@ -539,8 +539,9 @@ def handle_verify(db_type):
         return jsonify({"status": "locked"})
 
     except Exception as e:
+    except Exception as e:
         print("-----------------------------------------")
-        print("CRASH ERROR SA /verify:")
+        print(f"CRASH ERROR SA /verify para sa device ({device}):")
         traceback.print_exc()
         print("-----------------------------------------")
         return jsonify({
@@ -1018,6 +1019,20 @@ def cleanup_expired_keys():
         }), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route("/admin/debug-devices", methods=["GET"])
+def debug_devices():
+    try:
+        conn = get_db_connection('injector')
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        # Kunin ang huling 10 na nag-register na devices
+        cur.execute("SELECT device_id, telegram_user, linked_at FROM device_links ORDER BY linked_at DESC LIMIT 10;")
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+        return jsonify(rows), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/admin/add_key')
 def add_key():
