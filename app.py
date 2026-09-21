@@ -337,28 +337,14 @@ def handle_verify(db_type):
         telegram_user = "CODM Script User"
         chat_id = None
 
-        # Kung ang client ay "jayz", i-bypass ang Telegram bot requirement!
+# Kung ang client ay "jayz", i-bypass ang Telegram bot requirement!
         if client_type == "jayz":
             telegram_user = "JAYZ X ROIKA User"
         elif db_type != "script":
-            # Normal check para sa main injector
-            cur.execute("SELECT * FROM device_links WHERE device_id = %s;", (device,))
-            link_data = cur.fetchone()
-
-            bot_username = "KazeRegisterBot"
-            bot_link = f"https://t.me/{bot_username}?start={device}"
-
-            if not link_data or not link_data.get("chat_id"):
-                cur.close()
-                conn.close()
-                return jsonify({
-                    "status": "link_required",
-                    "message": "Please start the Telegram bot first!",
-                    "bot_url": bot_link
-                })
-
-            chat_id = link_data["chat_id"]
-            stored_user = link_data["telegram_user"]
+            # --- PANSAMANTALANG BINAYPASS PARA SA TEST ---
+            # Hindi muna natin iche-check ang device_links para diretso login na agad.
+            telegram_user = "Test Bypass User"
+            chat_id = None
             # ... (ituloy ang natitirang code para sa bot verification)
             normalized_stored = stored_user.lstrip('@').lower() if stored_user else ""
             current_telegram_user = normalized_stored
