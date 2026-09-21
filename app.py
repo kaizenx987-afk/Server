@@ -328,6 +328,10 @@ def handle_verify(db_type):
         device = request.args.get("device")
         client_type = request.args.get("client")
         
+        # --- IDAGDAG ITO PARA MAKITA NATIN SA LOGS ---
+        print(f"DEBUG LOGIN ATTEMPT -> Key: {key} | Device: {device} | Client: {client_type}")
+        # ---------------------------------------------
+        
         if not key or not device:
             return jsonify({"status": "invalid", "message": "Missing key or device"}), 400
 
